@@ -107,7 +107,7 @@ def home():
         try:
             llm = ChatGroq(
                 groq_api_key=api_key,
-                model_name="llama-3.1-8b-instant"
+                model_name="openai/gpt-oss-120b"
             )
             response = llm.invoke(formatted_prompt)
             answer = response.content
