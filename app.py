@@ -24,7 +24,6 @@ vectorstore = Chroma(
 
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# 2. Exact Prompt Template from Assessment
 PROMPT_TEMPLATE = """You are an AI customer support assistant.
 
 You are speaking with:
@@ -65,7 +64,6 @@ def home():
         user_id = request.form.get("user_id", "").strip()
         user_query = request.form.get("question", "").strip()
 
-        # Error Handling 1: Missing Groq API Key
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key or api_key == "your_groq_api_key_here":
             return render_template(
@@ -73,7 +71,6 @@ def home():
                 answer="Error: GROQ_API_KEY is missing. Please set GROQ_API_KEY in your environment variables."
             )
 
-        # Error Handling 2: Invalid user_id
         user = get_user_details(user_id)
         if not user:
             return render_template(
@@ -83,17 +80,23 @@ def home():
 
         name, membership_tier = user
 
-        # Retrieve relevant chunks
-        docs = retriever.invoke(user_query)
+        # Retrieve relevant chunks with safe fallback to company_faq.txt
+        retrieved_chunks = ""
+        try:
+            docs = retriever.invoke(user_query)
+            if docs:
+                retrieved_chunks = "\n\n".join([doc.page_content for doc in docs])
+        except Exception:
+            if os.path.exists("company_faq.txt"):
+                with open("company_faq.txt", "r", encoding="utf-8") as f:
+                    retrieved_chunks = f.read()[:4000]
 
-        # Error Handling 3: No relevant context found
-        if not docs:
+        if not retrieved_chunks.strip():
             return render_template(
                 "index.html",
                 answer="I do not have enough information in the provided knowledge base to answer this."
             )
 
-        retrieved_chunks = "\n\n".join([doc.page_content for doc in docs])
         formatted_prompt = prompt_template.format(
             name=name,
             membership_tier=membership_tier,
@@ -101,7 +104,6 @@ def home():
             user_query=user_query
         )
 
-        # Error Handling 4: API Error or Rate Limit
         try:
             llm = ChatGroq(
                 groq_api_key=api_key,
