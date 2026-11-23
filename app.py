@@ -3,7 +3,7 @@ import sqlite3
 import os
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 
@@ -11,12 +11,17 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# 1. Load Embeddings & Local Vector Store
-embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# Uses Hugging Face Inference API (uses ~0 MB RAM instead of loading PyTorch locally)
+embedding = HuggingFaceEndpointEmbeddings(
+    model="sentence-transformers/all-MiniLM-L6-v2",
+    huggingfacehub_api_token=os.getenv("HF_TOKEN")
+)
+
 vectorstore = Chroma(
     persist_directory="chroma_db",
     embedding_function=embedding
 )
+
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 # 2. Exact Prompt Template from Assessment
